@@ -5,7 +5,10 @@
 #include<arpa/inet.h>
 #include<unistd.h>
 
+#define DS_SB_IMPLEMENTATION
 #define DS_SS_IMPLEMENTATION
+#define DS_IO_IMPLEMENTATION
+
 #include "ds.h"
 #define MAX_LEN 1024
 
@@ -81,14 +84,18 @@ int main(){
         ds_string_slice_to_owned(&token, &path);
         printf("Path Requested: %s\n", path);
 
-        // Split protocol
-        ds_string_slice_tokenize(&request, '\n', &token);
-        char *protocol = NULL;
-        ds_string_slice_to_owned(&token, &protocol);
-        printf("Protocol: %s\n", protocol);
+        // Use a string builder and store the resulting string in response ptr and write it to the client via HTTP server.
+        ds_string_builder response_builder;
+        ds_string_builder_init(&response_builder);
+        ds_string_builder_append(&response_builder, "HTTP/1.1 200 OK\nContent-Type: text/html\nContent-Length: %d\n\n%s", 6, "Hello\n");
+        char *response = NULL;
+        ds_string_builder_build(&response_builder, &response);
+        int response_len = strlen(response);
+        
 
         // respond to client
-        write(cfd, "Hello\n", 6);
+        printf("%s", response);
+        write(cfd, response, response_len);
     }
 
     result = close(sfd);
