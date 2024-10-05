@@ -5,6 +5,10 @@
 #include<arpa/inet.h>
 #include<unistd.h>
 
+#define DS_SS_IMPLEMENTATION
+#include "ds.h"
+#define MAX_LEN 1024
+
 int main(){
     int cfd, sfd, result;
     socklen_t client_addr_size;
@@ -20,7 +24,7 @@ int main(){
 
 // Bind socket with socketaddress
     addr.sin_family = AF_INET;
-    addr.sin_port = htons(8001);
+    addr.sin_port = htons(8000);
     inet_pton(AF_INET, "0.0.0.0", &addr.sin_addr);
     result = bind(sfd, (struct sockaddr *) &addr, sizeof(addr));
     if(result == -1){
@@ -35,18 +39,42 @@ int main(){
         return -1;
     }
 
-    client_addr_size = sizeof(client_addr);
-    cfd = accept(sfd, (struct sockaddr *) &client_addr, &client_addr_size);
-    if(cfd == -1){
-        perror("Error Accepting from the client");
-        return -1;
-    }
+    while(1){
+        // Infinite loop to take requests
+        client_addr_size = sizeof(client_addr);
+        cfd = accept(sfd, (struct sockaddr *) &client_addr, &client_addr_size);
+        if(cfd == -1){
+            perror("Error Accepting from the client");
+            return -1;
+        }
 
-    // Actual networking stuff
-    write(cfd, "Hello\n", 6);
-    char buffer[1024] = {0};
-    read(cfd, buffer, 1024);
-    printf("Client: '%s'\n", buffer);
+        // Actual networking stuff
+        // Read client message
+        char buffer[MAX_LEN] = {0};
+        int result = read(cfd, buffer, MAX_LEN);
+
+        if(result == -1){
+            perror("Error reading text");
+            continue;
+        }
+
+        unsigned int buffer_len = result;
+        printf("Client (%u): '%s'\n", buffer_len, buffer);
+
+        // do stuff
+        ds_string_slice request, token;
+        ds_string_slice_init(&request, buffer, buffer_len);
+        
+        ds_string_slice_tokenize(&request, ' ', &token);
+        ds_string_slice_tokenize(&request, ' ', &token);
+
+        char *path = NULL;
+        ds_string_slice_to_owned(&token, &path);
+        printf("Path Requested: %s\n", path);
+
+        // respond to client
+        write(cfd, "Hello\n", 6);
+    }
 
     result = close(sfd);
     if(result == -1){
