@@ -5,6 +5,7 @@
 #include<netinet/in.h>
 #include<arpa/inet.h>
 #include<unistd.h>
+#include<dirent.h>
 
 #define DS_SB_IMPLEMENTATION
 #define DS_SS_IMPLEMENTATION
@@ -28,7 +29,7 @@ int main(){
 
 // Bind socket with socketaddress
     addr.sin_family = AF_INET;
-    addr.sin_port = htons(8000);
+    addr.sin_port = htons(8001);
     inet_pton(AF_INET, "0.0.0.0", &addr.sin_addr);
     result = bind(sfd, (struct sockaddr *) &addr, sizeof(addr));
     if(result == -1){
@@ -101,7 +102,20 @@ int main(){
             ds_string_builder directory_builder;
             ds_string_builder_init(&directory_builder);
             ds_string_builder_append(&directory_builder, "<!DOCTYPE HTML>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\"\n<title> Directory Listing For %s </title>\n</head>\n<body>\n<h1>Dierctory Listing For %s </h1>\n<hr>\n<ul>", path+1, path+1);
-            // go through all files and append them into a <li>.
+
+            // Open directory path in a poiter and iterate through everything and print it, close the directory afterwards.
+            DIR *directory = opendir(path + 1);
+            struct dirent *dir;
+            if(directory){
+                while((dir = readdir(directory)) != NULL){
+                    // printf("%s\n", dir->d_name);
+                    if(dir->d_name != ".." && dir->d_name != "."){
+                        ds_string_builder_append(&directory_builder, "<li><a href=\"%s\\%s\"> %s </a></li>\n", path + 1, dir->d_name, dir->d_name);
+                    }
+                }
+                closedir(directory);
+            }
+
             ds_string_builder_append(&directory_builder, "</ul>\n<hr>\n</body>\n</html>");
             ds_string_builder_build(&directory_builder, &content);
             content_len = strlen(content);
