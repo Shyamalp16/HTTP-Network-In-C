@@ -17,7 +17,7 @@ int main(){
 // Open socket
     sfd = socket(AF_INET, SOCK_STREAM, 0);
     if(sfd == -1){
-        perror("socket");
+        DS_PANIC("Error Initializing Socket");
         return -1;
     }
 
@@ -28,14 +28,14 @@ int main(){
     inet_pton(AF_INET, "0.0.0.0", &addr.sin_addr);
     result = bind(sfd, (struct sockaddr *) &addr, sizeof(addr));
     if(result == -1){
-        perror("binding error");
+        DS_PANIC("Error Binding to Socket");
         return -1;
     }
 
 // Listen to the connection now
     result = listen(sfd, 10);
     if(result == -1){
-        perror("Error listening to the connection");
+        DS_PANIC("Error listening to the connection");
         return -1;
     }
 
@@ -44,7 +44,7 @@ int main(){
         client_addr_size = sizeof(client_addr);
         cfd = accept(sfd, (struct sockaddr *) &client_addr, &client_addr_size);
         if(cfd == -1){
-            perror("Error Accepting from the client");
+            DS_PANIC("Error Accepting from client");
             return -1;
         }
 
@@ -54,23 +54,38 @@ int main(){
         int result = read(cfd, buffer, MAX_LEN);
 
         if(result == -1){
-            perror("Error reading text");
+            DS_PANIC("Error Reading text");
             continue;
         }
 
-        unsigned int buffer_len = result;
-        printf("Client (%u): '%s'\n", buffer_len, buffer);
+        unsigned int buffer_len = result; 
 
         // do stuff
         ds_string_slice request, token;
         ds_string_slice_init(&request, buffer, buffer_len);
         
+        // Split method
         ds_string_slice_tokenize(&request, ' ', &token);
-        ds_string_slice_tokenize(&request, ' ', &token);
+        char *verb = NULL;
+        ds_string_slice_to_owned(&token, &verb);
+        if(strcmp(verb, "GET") != 0){
+            DS_LOG_ERROR("Invalid Request Method");
+            // TODO: RESPOND WITH 400 (BAD REQUEST)
+            continue;
+        }
+        printf("Request Method: %s\n", verb);
 
+        // Split path
+        ds_string_slice_tokenize(&request, ' ', &token);
         char *path = NULL;
         ds_string_slice_to_owned(&token, &path);
         printf("Path Requested: %s\n", path);
+
+        // Split protocol
+        ds_string_slice_tokenize(&request, '\n', &token);
+        char *protocol = NULL;
+        ds_string_slice_to_owned(&token, &protocol);
+        printf("Protocol: %s\n", protocol);
 
         // respond to client
         write(cfd, "Hello\n", 6);
@@ -78,7 +93,7 @@ int main(){
 
     result = close(sfd);
     if(result == -1){
-        perror("Error Closing Connection");
+        DS_PANIC("Error Closing The connection");
         return -1;
     }
     return 0;
