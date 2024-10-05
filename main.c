@@ -82,12 +82,23 @@ int main(){
         ds_string_slice_tokenize(&request, ' ', &token);
         char *path = NULL;
         ds_string_slice_to_owned(&token, &path);
-        printf("Path Requested: %s\n", path);
+
+        // Try to read file now to check if the path exists
+        // TODO: IF FILE DOESNT EXIST, RETURN 404!
+
+        char *content = NULL;
+        int content_len;
+        if((ds_io_read_file(path + 1, &content)) == -1){
+            perror("FILE DOES NOT EXIST");
+        }else{
+            content_len = ds_io_read_file(path + 1, &content);
+        }
+
 
         // Use a string builder and store the resulting string in response ptr and write it to the client via HTTP server.
         ds_string_builder response_builder;
         ds_string_builder_init(&response_builder);
-        ds_string_builder_append(&response_builder, "HTTP/1.1 200 OK\nContent-Type: text/html\nContent-Length: %d\n\n%s", 6, "Hello\n");
+        ds_string_builder_append(&response_builder, "HTTP/1.1 200 OK\nContent-Type: text/html\nContent-Length: %d\n\n%s", content_len, content);
         char *response = NULL;
         ds_string_builder_build(&response_builder, &response);
         int response_len = strlen(response);
