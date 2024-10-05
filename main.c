@@ -1,5 +1,6 @@
 #include<stdio.h>
 #include<sys/socket.h>
+#include<sys/stat.h>
 #include<errno.h>
 #include<netinet/in.h>
 #include<arpa/inet.h>
@@ -84,16 +85,29 @@ int main(){
         ds_string_slice_to_owned(&token, &path);
 
         // Try to read file now to check if the path exists
-        // TODO: IF FILE DOESNT EXIST, RETURN 404!
-
-        char *content = NULL;
-        int content_len;
-        if((ds_io_read_file(path + 1, &content)) == -1){
-            perror("FILE DOES NOT EXIST");
-        }else{
-            content_len = ds_io_read_file(path + 1, &content);
+        struct stat path_stat;
+    
+        if(stat(path + 1, &path_stat) != 0){
+            DS_LOG_ERROR("Error fetching file stats");
+            continue;
         }
 
+        char *content = NULL;
+        int content_len = 0;
+        // So if its a simple file, we do all that  
+        if(S_ISREG(path_stat.st_mode)){
+            content_len = content_len = ds_io_read_file(path + 1, &content);
+        }else if(S_ISDIR(path_stat.st_mode)){
+            ds_string_builder directory_builder;
+            ds_string_builder_init(&directory_builder);
+            ds_string_builder_append(&directory_builder, "<!DOCTYPE HTML>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\"\n<title> Directory Listing For %s </title>\n</head>\n<body>\n<h1>Dierctory Listing For %s </h1>\n<hr>\n<ul>", path+1, path+1);
+            // go through all files and append them into a <li>.
+            ds_string_builder_append(&directory_builder, "</ul>\n<hr>\n</body>\n</html>");
+            ds_string_builder_build(&directory_builder, &content);
+            content_len = strlen(content);
+        }else{
+            DS_LOG_ERROR("Invalid file/directory mode!");
+        }
 
         // Use a string builder and store the resulting string in response ptr and write it to the client via HTTP server.
         ds_string_builder response_builder;
@@ -103,7 +117,6 @@ int main(){
         ds_string_builder_build(&response_builder, &response);
         int response_len = strlen(response);
         
-
         // respond to client
         printf("%s", response);
         write(cfd, response, response_len);
